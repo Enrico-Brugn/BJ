@@ -1,0 +1,718 @@
+import random
+import sys
+
+#%%
+class FrenchCard:
+    
+    @classmethod
+    def create_face(cls, name, suit):
+        
+        suit_symbol = {'Spades':chr(9824), 'Hearts':chr(9825), 
+                      'Squares': chr(9826), 'Clubs':chr(9827)}
+        name_symbol = {'Ace':'A', 'Jack':'J', 'Queen':'Q', 'King':'K'}
+        
+        if name in name_symbol.keys():
+            
+            face = name_symbol[name] + suit_symbol[suit]
+        
+        else:
+            
+            face = name + suit_symbol[suit]
+        
+        return face
+    
+    @classmethod
+    def create(cls, name, suit):
+        
+        face = FrenchCard.create_face(name, suit)
+        
+        return FrenchCard(face, name, suit)
+    
+    def __init__(self, face, name, suit):
+        
+        self.face = face
+        self.name = name
+        self.suit = suit
+    
+    def __str__(self):
+        
+        return f'{self.face} is a {self.name} of {self.suit}'
+
+#%%
+class BJCard(FrenchCard):
+    ''' all the information necessary to describe a blackjack card: its (face), 
+    its (suit), its (name), and its (soft_value) and (hard_value)'''
+    
+    @classmethod
+    def create(cls, name, suit):
+        
+        hard_values={'Ace':1, '2':2, '3':3, '4':4, '5':5, '6':6, '7':7, '8':8, 
+                     '9':9, '10':10, 'Jack':10, 'Queen':10, 'King':10}
+        face = super().create_face(name, suit)
+        hard_value = hard_values[name]
+        
+        if name == 'Ace':
+            soft_value = 11
+            
+        else:
+            soft_value = None
+        
+        return BJCard(face, name, suit, soft_value, hard_value)
+    
+    def __init__(self, face, name, suit, soft_value, hard_value):
+        super().__init__(face, name, suit)
+        
+        self.soft_value = soft_value
+        self.hard_value = hard_value
+        
+    def __str__(self):
+        
+        if self.soft_value == None:
+            return super().__str__() + ': it has a value of {self.hard_value}'
+            
+        else:
+            return super().__str__() + f': it has a soft value of '\
+                   f'{self.soft_value} and a hard value of {self.hard_value}'
+
+#%%
+class Shoe:
+    
+    @classmethod
+    def create(cls, deck_number):
+        suits = ('Spades', 'Hearts', 'Squares', 'Clubs')
+        cards = ('Ace', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'Jack', 
+                 'Queen', 'King')
+        
+        deck = []
+        deck_faces = []
+        
+        for i in range(deck_number):
+            for suit in suits:
+                for card in cards:
+                    deck.append(BJCard.create(card, suit))
+                    
+        for card in deck:
+            deck_faces.append(str(card.face))
+        
+        return Shoe(deck, deck_faces)
+    
+    def __init__(self, deck, deck_faces):
+        
+        self.deck = deck
+        self.deck_faces = deck_faces
+    
+    def draw_card(self):
+        
+        random_card = random.randint(0, (len(self) - 1))
+        card = self.deck.pop(random_card)
+        
+        del self.deck_faces[random_card]
+        
+        return card
+    
+    def __len__(self):
+        return len(self.deck)
+    
+    def __str__(self):
+        
+        return f'\nThere are {len(self)} cards in the shoe.'
+            
+#%%            
+class BJTable:
+    #TODO add casino money (optional)
+    
+    @classmethod
+    def create(cls):
+        
+        deck_number = None
+        
+        while deck_number == None or deck_number < 1 or deck_number > 8:
+            print('You can have between 1 and 8 decks in the shoe.')
+            try:
+                deck_number = int(input('Choose a deck number: '))
+            except:
+                print('Please use integer numeric values.\n')
+        
+        shoe = Shoe.create(deck_number)
+        positions = []
+        position_number = None
+        
+        while position_number == None or position_number < 5 or position_number > 7:
+            print('You can have between 5 and 7 positions on the table. Each '
+                  'position corresponds to a seat you\'ll play')
+            try:
+                position_number = int(input('Choose a number of positions: '))
+            except:
+                print('Please use integer numeric values.\n')
+        
+        for position in range(position_number):
+            #TODO provide a mean to name the positions (kinda done)
+            positions.append(Position.create())
+        
+        hole_game = None
+        
+        while hole_game == None:
+            print('Hole card game?')
+            hole_choice = str.upper(input('(Y)es/(N)o: '))
+            if hole_choice == 'Y':
+                hole_game = True
+            elif hole_choice == 'N':
+                hole_game = False
+            else:
+                print('Type the letter Y or the letter N.')
+        
+        hs_soft_17 = None
+        
+        while hs_soft_17 == None:
+            print('Do you want the Dealer to Hit or Stand with a soft 17?')
+            hs_choice = str.upper(input('(H)it/(S)tand: '))
+            if hs_choice == 'H':
+                hs_soft_17 = True
+            elif hs_choice == 'S':
+                hs_soft_17 = False
+            else:
+                print('Type the letter H or the letter S.')
+        
+        player_money = 0
+        
+        while player_money == 0:
+            print('How much money do you have?')
+            try:
+                player_money += int(input('Type a number: '))
+            except:
+                print('Please use integer numeric values.\n')
+        
+        return BJTable(shoe, deck_number, positions, hole_game, hs_soft_17, 
+                       player_money)
+    
+    def __init__(self, shoe, deck_number, positions, hole_game, hs_soft_17, 
+                 player_money):
+        
+        self.shoe = shoe
+        self.deck_number = deck_number
+        self.positions = positions
+        self.hole_game = hole_game
+        self.hs_soft_17 = hs_soft_17
+        self.player_money = player_money
+        self.dealer_hand = None
+    
+    def deal(self):
+        for position in self.positions:
+            position.deal(self.shoe.draw_card())
+
+    def betting(self):
+        position_number = 1
+        
+        for position in self.positions:
+            print(f'Position {position_number} betting.')
+            player_money = position.betting(self.player_money)
+            position_number += 1
+        
+        return player_money
+        
+    def resolution(self):
+        
+        dealer_status = None
+        
+        if self.dealer_hand.status != None:
+            dealer_status = self.dealer_hand.status
+        
+        elif self.dealer_hand.soft_value != None and \
+             self.dealer_hand.soft_value <= 21:
+            dealer_status = self.dealer_hand.soft_value
+        
+        elif self.dealer_hand.hard_value <= 21:
+            dealer_status = self.dealer_hand.hard_value
+        
+        count = 0
+        
+        for position in self.positions:
+            count += 1
+            increment = position.resolution(dealer_status)
+            
+            print(f'You\'ve won {increment} from the hands in position {count}')
+            
+            self.player_money += increment
+    
+    def reset(self):
+        
+        staying = None
+        
+        while staying == None:
+            will = str.upper(input('Do you want to (S)tay at the table or '
+                                   '(L)eave? '))
+            if will == 'S':
+                staying = True
+            elif will == 'L':
+                staying = False
+            else:
+                print('Please type S or L.')
+        
+        if staying == True:
+            for position in self.positions:
+                print('Resetting table...')
+                position.reset()
+            
+            self.dealer_hand = None
+            
+            if len(self.shoe) < 52:
+                print('Shuffling a new shoe...')
+                self.shoe = Shoe.create(self.deck_number)
+            
+            self.progression()
+        else:
+            sys.exit()
+        
+    def progression(self):
+        self.player_money = self.betting()
+        
+        self.deal()
+        
+        print(self)
+        
+        self.player_money = self.betting()
+        
+        self.dealer_hand = DealerHand.create(self.shoe.draw_card(), 
+                                             self.hole_game, 
+                                             self.hs_soft_17)
+        
+        #TODO add insurance (optional)
+        self.deal()
+        
+        print(self)
+        
+        if self.hole_game:
+            self.dealer_hand.add_to(self.shoe.draw_card())
+        
+        position_nr = 1
+        for position in self.positions:
+            print(f'Position {position_nr}.')
+            position.progression(self.player_money)
+            position_nr +=1
+        #TODO add surrender (optional)
+        self.dealer_hand.resolution()
+        
+        print(self)
+        
+        self.resolution()
+        
+        print(self)
+
+        self.reset()
+        
+    def __len__(self):
+        return len(self.positions)
+
+    def __str__(self):
+        position_nr = 1
+        string = f'\n\nYou have {self.player_money} in the bank.\n\n'
+        
+        for position in self.positions:
+            string += f'Position {position_nr}.\n{position}\n'
+            position_nr +=1
+        
+        if self.dealer_hand != None:
+            string += f'Dealer: {self.dealer_hand}\n'
+        
+        return string
+
+#%%
+class Position:
+    @classmethod
+    def create(cls):
+        
+        hands = []
+        
+        return Position(hands)
+    
+    def __init__(self, hands):
+        
+        self.hands = hands
+        self.blind_bet = 0
+        
+    def deal(self, card):
+        if len(self.hands) == 0:
+            self.hands.append(Hand.create(card, self))
+        elif len(self.hands) == 1:
+            self.hands[0].add_to(table.shoe.draw_card())
+        
+    def betting(self, player_money):
+        betting = True
+        
+        while betting:
+            if len(self.hands) == 0:
+                print('Blind bet:')
+                
+                try:
+                    bet = int(input('How much do you want to bet? 0 for no '
+                                    'bet: '))
+                except:
+                    print('Please use integer numbers.')
+                    
+                if bet > player_money or bet < 0:
+                    print(f'You have to type a number between 0 and '
+                          f'{player_money}!')
+                    
+                else:
+                    self.blind_bet += bet
+                    player_money -= bet
+                    return player_money
+                
+            elif len(self.hands) == 1:
+                player_money = self.hands[0].betting(player_money, 
+                                                     doubling_down = False)
+                
+                return player_money
+        
+    def progression(self, player_money):
+        hand_nr = 1
+        for hand in self.hands:
+            print(f'Hand {hand_nr}.')
+            print(hand)
+            
+            while hand.playable:
+                if hand.splittable:
+                    print('You can (H)it, (S)tand, (DD) double down, (SP)lit'
+                          ' or (LOOK) at the table.')
+                else:
+                    print('You can (H)it, (S)tand or (DD) double down or '
+                          '(LOOK) at the table.')
+                
+                move = str.upper(input('What do you want to do? '))
+                
+                if move == 'H':
+                    hand.add_to(table.shoe.draw_card())
+                
+                elif move == 'S':
+                    hand.status = 'Stand!'
+                    hand.playable = False
+                
+                elif move == 'DD':
+                    hand.status = 'Doubled Down!'
+                    player_money = hand.betting(player_money, doubling_down = True)
+                    hand.add_to(table.shoe.draw_card())
+                    hand.playable = False
+                
+                elif move == 'SP':
+                    if hand.splittable:
+                        self.hands.append(hand.split(self))
+                        hand.add_to(table.shoe.draw_card())
+                        self.hands[-1].add_to(table.shoe.draw_card())
+                        
+                    else:
+                        print('Hand is not splittable.\n')
+                
+                elif move == 'LOOK':
+                    print(table)
+                
+                print(hand)
+            hand_nr += 1
+        return player_money
+        
+    def resolution(self, dealer_status):
+        
+        winnings = 0
+        
+        for hand in self.hands:
+            winnings += hand.resolution(dealer_status)
+        
+        return winnings
+    
+    def reset(self):
+        self.hands = []
+        self.blind_bet = 0
+    
+    def __len__(self):
+        return len(self.hands)
+    
+    def __str__(self):
+        hand_nr = 1
+        string = ''
+        
+        for hand in self.hands:
+            string += f'Hand: {hand_nr}.\n{hand}\n'
+            hand_nr += 1
+            
+        return string
+                 
+#%%
+class Hand:
+    @classmethod
+    def create(cls, card, position):
+        
+        cards = [card]
+        hand_faces = [card.face]
+        soft_value = card.soft_value
+        hard_value = card.hard_value
+        bet = position.blind_bet
+        
+        position.blind_bet = 0
+        
+        return Hand(cards, hand_faces, soft_value, hard_value, bet)
+    
+    def __init__(self, cards, hand_faces, soft_value, hard_value, bet):
+        
+        self.cards = cards
+        self.hand_faces = hand_faces
+        self.soft_value = soft_value
+        self.hard_value = hard_value
+        self.bet = bet
+        
+        self.playable = True
+        self.splittable = False
+        self.status = None
+        self.won = None
+    
+    def betting(self, player_money, doubling_down):
+        betting = True
+        
+        while betting:
+            if doubling_down:
+                dd_bet = 0
+                print('Doubling down, you can up to double your bet!')
+                print(self)
+                try:
+                    dd_bet += float(input('How much do you want to bet? 0 for '
+                                          'no bet: '))
+                except:
+                    print('Please use integer numbers.')
+                
+                if dd_bet > player_money:
+                    print(f'You can\'t bet more than {player_money}.')
+                
+                elif dd_bet > self.bet or dd_bet < 0:
+                    print(f'You have to type a number between 0 and '
+                          f'{self.bet}!')
+                else:
+                    self.bet += dd_bet
+                    player_money -= dd_bet
+                    return player_money
+            else:
+                print('Last betting chance:')
+                print(self)
+                try:
+                    bet = int(input('How much do you want to bet? 0 for '
+                                          'no bet: '))
+                except:
+                    print('Please use integer numbers.')
+                if bet > player_money or bet < 0:
+                    print(f'\n\nYou have to type a number between 0 and '
+                          f'{player_money}!\n\n')
+                else:
+                    self.bet += bet
+                    player_money -= bet
+                    return player_money
+                    
+    def resolution(self, dealer_status):
+        if self.status == 'Bust!':
+            self.won = False
+        
+        elif dealer_status == 'Blackjack!':
+            if self.status == 'Blackjack!':
+                self.status = 'Blackjack Tie!'
+            else:
+                self.won = False
+        
+        elif dealer_status is int:
+            if self.soft_value != None and self.soft_value <= 21:
+                if self.soft_value != None and self.soft_value < dealer_status:
+                    self.won = False
+                elif self.soft_value != None and self.soft_value == dealer_status:
+                    self.status = 'Tie!'
+            elif self.hard_value < dealer_status:
+                self.won = False
+            elif self.hard_value == dealer_status:
+                self.status = 'Tie!'
+        
+        else:
+            self.won = True
+        
+        if self.won == True:
+            return self.bet * 2
+        elif self.won == False:
+            return 0
+        else:
+            return self.bet
+        
+    
+    def splittability_checker(self):
+        
+        if len(self.cards) == 2:
+            if self.cards[0].name == self.cards[1].name:
+                return True
+        else:
+            return False
+        
+    def split(self, position):
+        card = self.cards.pop(1)
+        self.hard_value = int(self.hard_value / 2)
+            
+        if self.soft_value != None:
+            self.soft_value = int(self.soft_value / 2)
+        
+        self.bet = self.bet / 2
+        del self.hand_faces[1]
+        
+        position.blind_bet = self.bet
+            
+        return Hand.create(card, position)
+    
+    def status_setter(self):
+        
+        if len(self.cards) == 2:
+            if (self.cards[0].name == 'Ace' or self.cards[1].name == 'Ace') and\
+               self.soft_value == 21:
+                self.playable = False
+                return 'Blackjack!'
+        
+        elif self.hard_value > 21:
+            self.playable = False
+            return 'Bust!'
+        
+        else:
+            return None
+    
+    def add_to(self, card):
+        self.cards.append(card)
+        self.hand_faces.append(card.face)
+        
+        if card.soft_value != None:
+            if self.soft_value != None:
+                self.soft_value += card.soft_value
+                
+            elif self.soft_value == None:
+                self.soft_value = self.hard_value + card.soft_value
+        
+        elif self.soft_value != None:
+            self.soft_value += card.hard_value
+        
+        self.hard_value += card.hard_value
+        self.splittable = self.splittability_checker()
+        self.status = self.status_setter()
+    
+    def __str__(self):
+        string = ''
+        
+        if self.playable:
+            string += 'Unplayed hand:'
+        
+        else:
+            string += f'{self.status}'  
+        
+        string += f'\nThe hand contains: {self.hand_faces}.\nFor a hard'\
+                  f' value of: {self.hard_value}'
+        
+        if self.soft_value != None:
+            string += f' and a soft value of: {self.soft_value}'
+            
+        string += f'.\nYou bet {self.bet} on this hand.\n'
+        
+        return string
+        
+#%%
+class DealerHand:
+    @classmethod
+    def create(cls, card, hole_game, hs_soft_17):
+        
+        cards = [card]
+        hand_faces = [card.face]
+        soft_value = card.soft_value
+        hard_value = card.hard_value
+        first_card = card
+        
+        return DealerHand(first_card, cards, hand_faces, soft_value, 
+                          hard_value, hole_game, hs_soft_17)
+    
+    def __init__(self, first_card, cards, hand_faces, soft_value, hard_value, 
+                 hole_game, hs_soft_17):
+        
+        self.cards = cards
+        self.hand_faces = hand_faces
+        self.soft_value = soft_value
+        self.hard_value = hard_value
+        self.first_card = first_card
+        self.hole_game = hole_game
+        self.hs_soft_17 = hs_soft_17
+        self.status = None
+     
+    def status_setter(self):
+        if len(self.cards) == 2:
+            if (self.cards[0].name == 'Ace' or self.cards[1].name == 'Ace') and\
+               self.soft_value == 21:
+                return 'Blackjack!'
+        
+        elif self.hard_value > 21:
+            return 'Bust!'
+        
+        else:
+            return None
+    
+    def add_to(self, card):
+        self.cards.append(card)
+        self.hand_faces.append(card.face)
+        
+        if card.soft_value != None:
+            if self.soft_value != None:
+                self.soft_value += card.soft_value
+                
+            elif self.soft_value == None:
+                self.soft_value = self.hard_value + card.soft_value
+        
+        elif self.soft_value != None:
+            self.soft_value += card.hard_value
+        
+        self.hard_value += card.hard_value
+        self.status = self.status_setter()
+    
+    def resolution(self):
+        self.hole_game = False
+        print(self)
+        
+        if self.soft_value != None:
+            self.soft_resolution()
+        
+        else:
+            while self.soft_value == None and self.hard_value < 17:
+                self.add_to(table.shoe.draw_card())
+                print(self)
+                if self.soft_value != None:
+                    self.soft_resolution()
+    
+    def soft_resolution(self):
+        if self.hs_soft_17:
+            while self.soft_value <= 17 or \
+                  self.soft_value > 21 and self.hard_value < 17:
+                
+                self.add_to(table.shoe.draw_card())
+                print(self)
+        else:
+            while self.soft_value < 17 or \
+                  self.soft_value > 21 and self.hard_value < 17:
+                
+                self.add_to(table.shoe.draw_card())
+                print(self)
+    
+    def __str__(self):
+        string = ''
+        
+        if self.hole_game:
+            string += f'\nThe dealer has a {self.first_card.face}.\nFor'\
+                       f' a hard value of: {self.first_card.hard_value}'
+            
+            if self.first_card.soft_value != None:
+                string += f'and a soft value of: {self.first_card.soft_value}'
+            
+        elif self.hole_game == False:
+            string += f'\nThe dealer\'s hand has {self.hand_faces}. \n'\
+                       f'For a hard value of: {self.hard_value}'
+            
+            if self.soft_value != None:
+                string += f' and a soft value of {self.soft_value}'
+        
+        string += '.\n'
+        
+        return string
+
+#%%
+table = BJTable.create()
+table.progression()
